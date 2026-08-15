@@ -1,0 +1,14 @@
+# Der Build-Kontext enthält nur resources/ und apps-local/ -- alles andere raus.
+.env
+# nur das Repo des Docker-Setups -- apps-local/<app>/.git muss drin bleiben,
+# denn bench klont die App aus diesem Verzeichnis.
+/.git
+backups/
+apps.json
+README.md
+
+# Nichts vom Host in die App-Kopie schleppen
+**/.DS_Store
+**/node_modules
+**/__pycache__
+**/*.pyc
