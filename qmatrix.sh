@@ -64,10 +64,12 @@ cmd=${1:-}
 
 case "$cmd" in
   up|start|starten)
+    # 'up -d' kehrt erst zurueck, wenn create-site fertig ist -- die uebrigen
+    # Dienste warten per depends_on auf dessen Abschluss. Ein 'logs -f' wuerde
+    # danach nicht zurueckkehren und den Befehl haengen lassen.
+    echo "Starte (beim ersten Mal dauert die Site-Anlage ein paar Minuten) ..."
     dc up -d "$@"
-    echo
-    echo "Starte ... (beim ersten Mal dauert es ein paar Minuten)"
-    dc logs -f create-site || true
+    dc logs --tail=15 create-site || true
     zugang
     ;;
   down|stopp|stoppen|anhalten)
@@ -83,10 +85,31 @@ case "$cmd" in
   console|konsole)    dc exec backend bench --site "$SITE" console ;;
   migrate|migrieren)  dc exec backend bench --site "$SITE" migrate ;;
   update|aktualisieren)
+    # Vor dem Update sichern: 'bench migrate' laeuft beim Hochfahren automatisch,
+    # und ein mittendrin gescheiterter Patch hinterlaesst eine halb migrierte
+    # Datenbank. Mit --no-backup abschaltbar.
+    if [[ "${1:-}" == "--no-backup" ]]; then
+      echo "HINWEIS: Update ohne vorherige Sicherung (--no-backup)." >&2
+    elif [[ -z "$(dc ps -q backend 2>/dev/null)" ]]; then
+      # Nicht stillschweigend ueberspringen -- genau dieser Fall tritt nach einem
+      # Neustart des Rechners auf, und dann fehlt die Sicherung ausgerechnet
+      # dann, wenn man sie am ehesten braucht.
+      echo "HINWEIS: Stack läuft nicht, es wurde keine Sicherung angelegt." >&2
+      echo "         Für eine Sicherung vorher: ./qmatrix.sh start && ./qmatrix.sh sichern" >&2
+      echo
+    else
+      echo "Sichere vor dem Update ..."
+      "$0" sichern
+      echo
+    fi
     ./build.sh --refresh
     dc up -d --force-recreate
-    dc logs -f create-site || true
+    dc logs --tail=15 create-site || true
     zugang
+    echo "Bei Problemen zurück auf den vorherigen Stand:"
+    echo "  CUSTOM_TAG in .env auf den vorherigen Commit-Tag setzen, dann ./qmatrix.sh start"
+    docker images "${CUSTOM_IMAGE:-qmatrix/frappe}" \
+      --format "  {{.Tag}}  ({{.CreatedSince}})" | head -6
     ;;
   backup|sichern)
     mkdir -p backups

@@ -155,6 +155,74 @@ Benutzerkonten — alles, was Sie selbst erfasst haben, bleibt erhalten.
 
 ---
 
+## Aktualisieren
+
+Das Image ist unveränderlich. Neue App-Stände, neue Frappe-Versionen und
+Schema-Änderungen kommen ausschließlich über einen neuen Build herein — die
+Daten liegen davon getrennt in Docker-Volumes und bleiben unberührt.
+
+```bash
+./qmatrix.sh aktualisieren
+```
+
+Das erledigt vier Schritte:
+
+1. **Sicherung** der Site inklusive Dateien nach `backups/`
+2. **Neubau** des Images mit `--refresh` — Frappe und die App werden frisch
+   geklont, der Rest kommt aus dem Layer-Cache
+3. **Neustart** der Container mit dem neuen Image
+4. **`bench migrate`** — läuft automatisch im `create-site`-Job, sobald eine
+   Site existiert. Damit ziehen Schema-Änderungen aus Frappe *und* aus der App
+   nach
+
+Schritt 1 lässt sich mit `./qmatrix.sh aktualisieren --no-backup` überspringen.
+Ich würde es nicht tun: `bench migrate` führt Patches aus, und ein mittendrin
+gescheiterter Patch hinterlässt eine halb migrierte Datenbank.
+
+### Zurück auf einen früheren Stand
+
+Jeder Build setzt zwei Tags: den beweglichen `:16` und einen festen mit dem
+App-Commit, etwa `:16-a1b2c3d`. Nur deshalb gibt es überhaupt einen Rückweg —
+sonst hätte der nächste Build den vorherigen Stand überschrieben.
+
+```bash
+docker images qmatrix/frappe        # verfügbare Stände ansehen
+```
+
+Dann in der `.env` den gewünschten Tag eintragen und neu starten:
+
+```dotenv
+CUSTOM_TAG=16-a1b2c3d
+```
+
+```bash
+./qmatrix.sh start
+```
+
+Wichtig: Das setzt **nur den Code** zurück, nicht die Datenbank. Hat eine
+Migration das Schema bereits verändert, kommt der alte Code damit
+möglicherweise nicht zurecht. Für einen vollständigen Rückweg zusätzlich die
+Sicherung einspielen:
+
+```bash
+./qmatrix.sh bench --site qmatrix.localhost restore backups/<datei>.sql.gz
+```
+
+### Frappe-Version festlegen
+
+`FRAPPE_BRANCH=version-16` ist ein **beweglicher Branch** — jeder Build mit
+`--refresh` holt den jeweils neuesten Stand. Für reproduzierbare Builds
+stattdessen ein Tag eintragen:
+
+```dotenv
+FRAPPE_BRANCH=v16.30.0
+```
+
+Dann bestimmst du selbst, wann eine neue Frappe-Version hereinkommt. Dasselbe
+gilt für `APP_BRANCH`, dort ist auch ein Tag oder ein Commit möglich.
+
+---
+
 ## Wenn etwas nicht klappt
 
 | Meldung / Symptom | Lösung |

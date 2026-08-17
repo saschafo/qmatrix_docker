@@ -11,3 +11,6 @@ apps-local/*
 
 # macOS
 .DS_Store
+
+# depscan reports (contain unpatched vulnerability details)
+.depscan/

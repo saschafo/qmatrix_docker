@@ -137,7 +137,9 @@ info "Beim ersten Start wird die Datenbank angelegt — das dauert 1–3 Minuten
 echo
 
 docker compose up -d
-docker compose logs -f create-site 2>/dev/null || true
+# Kein 'logs -f': Das kehrt nicht zurueck, wenn der verfolgte Container endet.
+# 'up -d' wartet ohnehin auf create-site, ein einmaliges Nachsehen genuegt.
+docker compose logs --tail=15 create-site 2>/dev/null || true
 
 # Warten, bis die Anwendung wirklich antwortet.
 echo
